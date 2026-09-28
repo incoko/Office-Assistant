@@ -98,5 +98,63 @@ class PackagingTests(unittest.TestCase):
         build = (ROOT / 'scripts/build-windows.ps1').read_text()
         self.assertIn("'--no-index'", build)
         self.assertNotIn('Invoke-WebRequest', build)
-        self.assertIn('-Wait -PassThru', build)
+        self.assertIn('$Process.WaitForExit(120000)', build)
         self.assertNotIn('Remove-Item', build)
+
+
+class CloudBuildConfigurationTests(unittest.TestCase):
+    """Static contracts only; these do not execute PowerShell or GitHub Actions."""
+
+    def test_workflow_is_manual_and_read_only(self):
+        import re
+        text = (ROOT / '.github/workflows/windows-build.yml').read_text()
+        self.assertIn('workflow_dispatch:', text)
+        self.assertNotIn('pull_request_target:', text)
+        self.assertNotIn('\n  push:', text)
+        self.assertIn('contents: read', text)
+        self.assertIn('persist-credentials: false', text)
+        uses = re.findall(r'uses: ([^\s]+)', text)
+        self.assertEqual(len(uses), 4)
+        for action in uses:
+            self.assertRegex(action, r'^actions/[a-z-]+@[a-f0-9]{40}$')
+        self.assertIn('runs-on: windows-2022', text)
+        self.assertIn('if-no-files-found: error', text)
+        self.assertIn('retention-days: 7', text)
+        self.assertNotIn('secrets.', text)
+
+    def test_inno_is_verified_before_execution_and_offline_script_stays_offline(self):
+        import re
+        script = (ROOT / 'scripts/install-inno-ci.ps1').read_text()
+        self.assertRegex(script, r"\$ExpectedHash = '[a-f0-9]{64}'")
+        self.assertLess(script.index('$ActualHash -ne $ExpectedHash'), script.index('Start-Process'))
+        self.assertIn('$Process.WaitForExit(180000)', script)
+        build = (ROOT / 'scripts/build-windows.ps1').read_text()
+        self.assertIn('$ResultFile', build)
+        self.assertIn('build-provenance.json', build)
+        self.assertNotIn('Invoke-WebRequest', build)
+        self.assertNotIn('install-inno-ci.ps1', build)
+
+    def test_frozen_self_check_error_does_not_open_a_blocking_dialog(self):
+        with patch('office_assistant.self_check.run_checks', side_effect=RuntimeError('test failure')), \
+             patch('sys.frozen', True, create=True), \
+             patch('office_assistant.__main__._dialog') as dialog:
+            self.assertEqual(main(['--self-check']), 1)
+            dialog.assert_not_called()
+            self.assertEqual(main(['--self-check', '--show-result']), 1)
+            dialog.assert_called_once()
+
+    def test_all_nine_fictional_samples_are_present_and_not_ignored(self):
+        from zipfile import ZipFile
+        from xml.etree import ElementTree as ET
+        ignore = (ROOT / '.gitignore').read_text().splitlines()
+        self.assertNotIn('samples/', ignore)
+        paths = [p for p in (ROOT / 'samples').rglob('*') if p.is_file()]
+        self.assertEqual(len(paths), 9)
+        for path in paths:
+            if path.suffix in ('.xlsx', '.docx'):
+                with ZipFile(path) as archive:
+                    text = '\n'.join(' '.join(ET.fromstring(archive.read(name)).itertext())
+                                     for name in archive.namelist() if name.endswith('.xml'))
+            else:
+                text = path.read_text(encoding='utf-8')
+            self.assertIn('虚构', text, str(path))

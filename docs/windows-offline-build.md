@@ -13,6 +13,9 @@
 准备机与断网构建机使用相同的 Python 补丁版本；在交付记录中保存 Python 和 Inno 的准确版本。
 8GB 是使用者电脑总内存目标，不是本链已经测得的应用占用保证。
 
+没有联网 Windows 电脑时，可使用已配置的 GitHub Actions，操作见
+`docs/github-actions-windows-build.md`。它自动完成下面的准备与构建阶段。
+
 ## 1. 联网准备（Windows x64）
 
 准备机需已有 Python 3.12 x64 和 Tk，可使用组织认可的依赖镜像。
@@ -71,6 +74,7 @@ OfficeAssistant-0.1.0-windows-x64-setup.exe
 OfficeAssistant-0.1.0-windows-x64-portable.zip
 build-self-check.json
 dependency-manifest.json
+build-provenance.json
 WINDOWS-QUICKSTART.txt
 SHA256SUMS.txt
 ```

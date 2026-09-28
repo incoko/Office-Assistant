@@ -1,0 +1,100 @@
+name: Windows Build
+
+# Manual only: uploading source does not automatically consume build minutes.
+# The workflow must be on the default branch for the Run workflow button to appear.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows x64 prototype
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Check out source (no persisted credentials)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12 x64
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Prepare pinned Windows wheels (online)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Python = (Get-Command python).Source
+          & .\scripts\prepare-windows-offline.ps1 -Python $Python
+
+      - name: Install hash-verified Inno Setup (online)
+        id: inno
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\scripts\install-inno-ci.ps1 -Destination "$env:RUNNER_TEMP\inno-setup"
+          "iscc=$env:RUNNER_TEMP\inno-setup\ISCC.exe" >> $env:GITHUB_OUTPUT
+
+      - name: Test and build using the offline bundle
+        id: build
+        env:
+          ISCC_PATH: ${{ steps.inno.outputs.iscc }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $Python = (Get-Command python).Source
+          $ResultFile = "$env:RUNNER_TEMP\office-assistant-build.json"
+          Start-Transcript -Path "$env:RUNNER_TEMP\office-assistant-build.log"
+          try {
+            & .\scripts\build-windows.ps1 -Python $Python `
+              -BundleDir '.\offline-bundle' -Iscc $env:ISCC_PATH `
+              -ResultFile $ResultFile
+            $Result = Get-Content $ResultFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            "release_dir=$($Result.release_dir)" >> $env:GITHUB_OUTPUT
+            @"
+          ## Windows prototype build
+          - Commit: $env:GITHUB_SHA
+          - Application version: $($Result.version)
+          - Download **OfficeAssistant-windows-x64-$env:GITHUB_RUN_NUMBER-$env:GITHUB_RUN_ATTEMPT** in Artifacts below.
+          - Contains the setup EXE, portable ZIP, SHA256 checksums and smoke-test report.
+          - This is a cloud build on Windows Server 2022, NOT Windows 10 office-PC acceptance.
+          - Online dependency preparation is followed by no-index package installation; the runner is NOT air-gapped.
+          "@ >> $env:GITHUB_STEP_SUMMARY
+          } finally {
+            Stop-Transcript
+          }
+
+      - name: Upload installer and portable application
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: OfficeAssistant-windows-x64-${{ github.run_number }}-${{ github.run_attempt }}
+          path: ${{ steps.build.outputs.release_dir }}/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload limited diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-build-diagnostics-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/office-assistant-build.log
+            ${{ runner.temp }}/inno-setup-install.log
+            build/windows-*/self-check.json
+            build/windows-*/pyinstaller/**/warn-*.txt
+          if-no-files-found: warn
+          retention-days: 3

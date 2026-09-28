@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         message = f'Office Assistant could not start: {exc}'
         if sys.stderr:
             print(message, file=sys.stderr)
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, 'frozen', False) and (not args.self_check or args.show_result):
             _dialog(message, error=True)
         return 1
 

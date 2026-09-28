@@ -29,7 +29,7 @@ python -m unittest discover -s tests -v
 - Windows 离线打包链已加入 `scripts/`、`packaging/windows/` 和 `docs/windows-offline-build.md`；当前 macOS 开发环境不能生成 Windows EXE，必须在 Windows 10 x64 构建机执行。
 - 真实 Windows 安装包尚未生成和现场验收；不要把脚本存在等同于安装包已经可交付。
 
-> 当前开发容器若 Python 未编译 `_tkinter`，后端测试仍可运行；启动 GUI 时会给出明确提示。Windows 目标机需使用包含 Tk 的 Python 运行时，现场安装验证再确认这一点。
+> 源码开发环境需要 Tk 支持；安装版由打包链携带 Python/Tk，办公使用者无需单独安装。当前开发机没有 `_tkinter`，GUI 和 Windows 安装验收仍待验证。
 
 ## Windows 离线打包
 
@@ -46,3 +46,12 @@ python -m unittest discover -s tests -v
 安装器目标为 `D:\Program Files\Office Assistant\`，日常运行使用普通用户，
 配置和任务记录写入 `%LOCALAPPDATA%\Office Assistant\`。详细流程和现场验收清单见
 `docs/windows-offline-build.md`。
+
+## 无 Windows 构建机：GitHub Actions
+
+已添加手动工作流 `.github/workflows/windows-build.yml`。将本次修改和 `samples/` 的9个虚构
+测试文件提交并推送到 `main` 后，在 GitHub **Actions → Windows Build → Run workflow**
+启动构建。成功后从本次运行的 **Artifacts** 下载安装包和便携版。
+
+流程不需要内网服务或个人 Token；使用只读仓库权限，成功产物保留7天。云端构建
+成功不替代 Windows 10 办公电脑验收。详见 `docs/github-actions-windows-build.md`。
