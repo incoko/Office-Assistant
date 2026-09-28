@@ -1,0 +1,9 @@
+# Reviewed baseline, not a claim to be the latest release.
+# Build with CPython 3.12 x64 on Windows; all transitive build dependencies pinned.
+PyInstaller==6.11.1
+pyinstaller-hooks-contrib==2024.10
+altgraph==0.17.4
+packaging==24.2
+pefile==2023.2.7
+pywin32-ctypes==0.2.3
+setuptools==75.6.0
