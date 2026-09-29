@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from . import __version__
 from .security import NetworkPolicy
 
 
@@ -98,7 +99,7 @@ class SseMcpClient:
         return value.get("result")
 
     def initialize(self) -> Any:
-        return self._rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "office-assistant", "version": "0.1.0"}})
+        return self._rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "office-assistant", "version": __version__}})
 
     def list_tools(self) -> list[McpTool]:
         result = self._rpc("tools/list", {}) or {}

@@ -61,3 +61,10 @@ python -m unittest discover -s tests -v
 表格检查结果现在以汇总卡片、问题清单、来源单元格定位和合并数据预览展示，
 不再直接显示 JSON 源码。错误存在时会标记为待核验，不将原始合计当作最终业务结果。
 本次版本需要重新通过 GitHub Actions 构建；Windows Server 2022 已安装的旧版本不会自动更新。
+
+## 0.1.2 模型连接与对话
+
+高级设置现在可以配置 vLLM 的 OpenAI 兼容服务地址、模型名称、超时和可选 API Key，
+通过 `/models` 测试连接；通用对话可以向 `/chat/completions` 发送消息并显示返回内容。
+API Key 在 Windows 使用当前用户 DPAPI 保护，普通 JSON 配置只保存凭据引用。
+当前先支持非流式收发；真实 Qwen3.6 地址、模型标识、认证和接口能力仍需在内网部署测试。

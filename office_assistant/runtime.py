@@ -76,7 +76,7 @@ class AgentRuntime:
             if registered.enabled and registered.definition.name in agent.enabled_tool_names and registered.definition.name in authorized_tool_names
         ]
 
-    def run(self, agent: AgentProfile, title: str, user_text: str, input_files: list[str] | None = None, authorized_tool_names: list[str] | None = None) -> Task:
+    def run(self, agent: AgentProfile, title: str, user_text: str, input_files: list[str] | None = None, authorized_tool_names: list[str] | None = None, messages: list[dict[str, Any]] | None = None) -> Task:
         if self.active_task and self.active_task.status in {TaskStatus.RUNNING, TaskStatus.WAITING_CONFIRMATION}:
             raise RuntimeError("another task is already running")
         task = Task.new(agent, title, input_files)
@@ -84,7 +84,12 @@ class AgentRuntime:
         task.event("task_started", "任务开始")
         self.active_task = task
         authorized = set(authorized_tool_names or [])
-        messages: list[dict[str, Any]] = [{"role": "system", "content": agent.system_prompt}, {"role": "user", "content": user_text}]
+        if messages:
+            messages = list(messages)
+            if not messages or messages[0].get("role") != "system":
+                messages.insert(0, {"role": "system", "content": agent.system_prompt})
+        else:
+            messages = [{"role": "system", "content": agent.system_prompt}, {"role": "user", "content": user_text}]
         try:
             tool_calls_used = 0
             for round_number in range(1, self.max_rounds + 1):

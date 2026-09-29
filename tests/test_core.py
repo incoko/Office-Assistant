@@ -177,3 +177,41 @@ class ExtensionTests(unittest.TestCase):
             self.assertIn("agents", payload)
             self.assertNotIn("tasks", payload)
             self.assertNotIn("api_key", path.read_text(encoding="utf-8"))
+
+class ModelConnectionTests(unittest.TestCase):
+    def test_openai_compatible_client_sends_auth_and_receives_response(self):
+        import json
+        from unittest.mock import patch
+        from office_assistant.llm import OpenAICompatibleClient
+        seen = []
+        class Response:
+            def __init__(self, payload): self.payload = payload
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self): return json.dumps(self.payload).encode()
+        def fake_urlopen(request, timeout):
+            seen.append((request.method, request.full_url, request.headers.get('Authorization'), json.loads(request.data.decode()) if request.data else None))
+            if request.method == 'GET':
+                return Response({'data': [{'id': 'Qwen3.6'}]})
+            return Response({'choices': [{'message': {'role': 'assistant', 'content': '内网模型已回复'}}]})
+        client = OpenAICompatibleClient('http://127.0.0.1:8000/v1', 'Qwen3.6', api_key='test-token')
+        with patch('urllib.request.urlopen', side_effect=fake_urlopen):
+            self.assertEqual(client.list_models()[0]['id'], 'Qwen3.6')
+            response = client.chat([{'role': 'user', 'content': '你好'}])
+        self.assertEqual(response.content, '内网模型已回复')
+        self.assertEqual(seen[0][2], 'Bearer test-token')
+        self.assertEqual(seen[1][2], 'Bearer test-token')
+        self.assertEqual(seen[1][3]['model'], 'Qwen3.6')
+        self.assertFalse(seen[1][3]['stream'])
+
+    def test_model_service_state_does_not_contain_api_key(self):
+        from office_assistant.model_service import ModelService
+        from office_assistant.models import ModelConnection
+        with tempfile.TemporaryDirectory() as tmp:
+            store = JsonStore(Path(tmp))
+            service = ModelService(store)
+            service.save_connection(ModelConnection('m', 'test', 'http://127.0.0.1:8000/v1', 'Qwen3.6'), 'secret-token')
+            state = (Path(tmp) / 'config/state.json').read_text(encoding='utf-8')
+            self.assertNotIn('secret-token', state)
+            self.assertNotIn('api_key', state)
+            self.assertEqual(service.credentials.get(store.models()[0].credential_ref), 'secret-token')

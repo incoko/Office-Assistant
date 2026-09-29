@@ -26,23 +26,51 @@ class ChatResult:
 class OpenAICompatibleClient:
     """vLLM-compatible client. Real endpoint testing is deferred to deployment."""
 
-    def __init__(self, base_url: str, model: str, timeout: int = 60, policy: NetworkPolicy | None = None):
+    def __init__(self, base_url: str, model: str, timeout: int = 60, policy: NetworkPolicy | None = None, api_key: str | None = None):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout = timeout
         self.policy = policy or NetworkPolicy()
+        self.api_key = api_key
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         endpoint = self.base_url if self.base_url.endswith("/chat/completions") else f"{self.base_url}/chat/completions"
         allowed, reason = self.policy.check_url(endpoint)
         if not allowed:
             raise PermissionError(reason)
-        request = urllib.request.Request(endpoint, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        request = urllib.request.Request(endpoint, data=json.dumps(payload).encode(), headers=headers, method="POST")
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise ConnectionError(f"model request failed with HTTP {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise ConnectionError(f"model request failed: {exc.reason}") from exc
+
+    def _get(self, path: str) -> dict[str, Any]:
+        endpoint = f"{self.base_url}/{path.lstrip('/')}"
+        allowed, reason = self.policy.check_url(endpoint)
+        if not allowed:
+            raise PermissionError(reason)
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        request = urllib.request.Request(endpoint, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise ConnectionError(f"model service check failed with HTTP {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise ConnectionError(f"model service check failed: {exc.reason}") from exc
+
+    def list_models(self) -> list[dict[str, Any]]:
+        return list(self._get("models").get("data") or [])
 
     def chat(self, messages: list[dict[str, str]], tools: list[dict[str, Any]] | None = None, tool_choice: str = "auto") -> ChatResult:
         payload: dict[str, Any] = {"model": self.model, "messages": messages, "stream": False}

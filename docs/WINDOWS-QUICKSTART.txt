@@ -1,4 +1,4 @@
-Office Assistant 0.1.1 - Windows 离线原型试用说明
+Office Assistant 0.1.2 - Windows 离线原型试用说明
 
 本版本是模拟服务原型，不是正式银行业务系统。仅使用虚构材料。
 普通使用者不需要安装 Python、Tk、pip 或任何开发工具。
@@ -10,7 +10,8 @@ Office Assistant 0.1.1 - Windows 离线原型试用说明
    “Office Assistant - Self Check”运行自检。
 4. 自检报告：%LOCALAPPDATA%\Office Assistant\logs\self-check.json。
    此处指启动自检的用户；不要以管理员身份替同事验收普通用户读写权限。
-5. 从开始菜单启动 Office Assistant。全部模型回复为模拟内容。
+5. 从开始菜单启动 Office Assistant。首次安装后默认没有模型配置。进入“高级设置”填写内网 vLLM 地址和模型名称，测试连接并保存后，通用对话才会发送到配置的模型。
+如果尚未配置模型，应用不会自动访问外部模型。
    演示材料位于安装目录 _internal\samples；不要使用真实客户/业务资料。
 6. 自检没有连接内网或外网，只检查运行环境、用户数据读写、样例与界面初始化。
    通过自检不等于已接入 vLLM、MCP，也不等于功能全部完成。
@@ -23,3 +24,14 @@ Office Assistant 0.1.1 - Windows 离线原型试用说明
 已知限制：无真实模型配置界面；MCP 适配未完成；文稿是规则草稿；
 制度仅关键词检索；尚无完整 Word/Excel 导出；配置包安全性仍待完善。
 Windows 安装、卸载、升级及 8GB 电脑内存占用必须现场记录验证。
+
+
+模型配置试用：
+1. 打开“高级设置”。
+2. 服务地址填写 vLLM OpenAI 兼容服务的 base URL，例如 http://<内网主机>:<端口>/v1。
+   不要填写 /chat/completions；应用会自动拼接 /models 和 /chat/completions。
+3. 模型名称填写服务实际支持的模型 ID；不要只根据显示名称猜测。
+4. 如服务要求认证，填写 API Key。Windows 会使用当前用户保护凭据，普通配置不保存 Key。
+5. 点击“测试连接”，成功后点击“保存配置”。
+6. 打开“通用对话”发送测试消息。当前版本先使用非流式请求。
+7. 连接测试失败时保留错误信息，不要把 Key、真实业务内容或服务日志发送到外部。
