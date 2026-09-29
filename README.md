@@ -55,3 +55,9 @@ python -m unittest discover -s tests -v
 
 流程不需要内网服务或个人 Token；使用只读仓库权限，成功产物保留7天。云端构建
 成功不替代 Windows 10 办公电脑验收。详见 `docs/github-actions-windows-build.md`。
+
+## 0.1.1 表格检查界面
+
+表格检查结果现在以汇总卡片、问题清单、来源单元格定位和合并数据预览展示，
+不再直接显示 JSON 源码。错误存在时会标记为待核验，不将原始合计当作最终业务结果。
+本次版本需要重新通过 GitHub Actions 构建；Windows Server 2022 已安装的旧版本不会自动更新。

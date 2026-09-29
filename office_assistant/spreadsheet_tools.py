@@ -70,10 +70,24 @@ def read_workbook(path: str | Path) -> list[Row]:
                     continue
                 rows.append(Row(path.name, "事项台账", row_number, {h: values.get(col, "") for h, col in header.items()}))
             return rows
-    return rows
+    raise ValueError(f"{path.name}: 未找到有效的“事项台账”工作表")
 
 
-def validate_rows(rows: list[Row]) -> list[dict[str, str]]:
+NUMBER_FIELDS = ("应完成人数", "已完成人数", "未完成人数")
+
+
+def _location(row: Row, fields: tuple[str, ...]) -> dict:
+    return {"file": row.source_file, "sheet": row.source_sheet, "row": row.source_row,
+            "cells": [f"{_col_name(HEADERS.index(field) + 1)}{row.source_row}" for field in fields]}
+
+
+def _issue(kind: str, message: str, matches: list[Row], fields: tuple[str, ...]) -> dict:
+    return {"type": kind, "message": message,
+            "source": "; ".join(f"{r.source_file}/{r.source_sheet}/{r.source_row}" for r in matches),
+            "locations": [_location(row, fields) for row in matches]}
+
+
+def validate_rows(rows: list[Row]) -> list[dict]:
     issues = []
     seen: dict[str, list[Row]] = {}
     for row in rows:
@@ -81,27 +95,40 @@ def validate_rows(rows: list[Row]) -> list[dict[str, str]]:
         seen.setdefault(number, []).append(row)
         for header in HEADERS:
             if not row.values.get(header, "").strip():
-                issues.append({"type": "required", "message": f"缺少必填字段：{header}", "source": f"{row.source_file}/{row.source_sheet}/{row.source_row}"})
+                issues.append(_issue("required", f"缺少必填字段：{header}", [row], (header,)))
         deadline = row.values.get("截止日期", "")
         try:
+            if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", deadline):
+                raise ValueError
             date.fromisoformat(deadline)
         except ValueError:
-            issues.append({"type": "date", "message": f"截止日期不是合法 YYYY-MM-DD：{deadline}", "source": f"{row.source_file}/{row.source_sheet}/{row.source_row}"})
+            issues.append(_issue("date", f"截止日期不是合法 YYYY-MM-DD：{deadline}", [row], ("截止日期",)))
+        state = row.values.get("状态", "")
+        if state and state not in {"未开始", "进行中", "已完成"}:
+            issues.append(_issue("status", f"状态不在允许范围内：{state}", [row], ("状态",)))
         try:
-            expected, done, undone = [int(row.values.get(x, "")) for x in ("应完成人数", "已完成人数", "未完成人数")]
+            expected, done, undone = [int(row.values.get(x, "")) for x in NUMBER_FIELDS]
             if min(expected, done, undone) < 0:
                 raise ValueError
             if expected != done + undone:
-                issues.append({"type": "sum", "message": f"人数不平：{expected} != {done}+{undone}", "source": f"{row.source_file}/{row.source_sheet}/{row.source_row}"})
-            if row.values.get("状态") == "已完成" and (done != expected or undone != 0):
-                issues.append({"type": "status", "message": "已完成状态与人数不一致", "source": f"{row.source_file}/{row.source_sheet}/{row.source_row}"})
+                issues.append(_issue("sum", f"人数不平：{expected} != {done}+{undone}", [row], NUMBER_FIELDS))
+            if state == "已完成" and (done != expected or undone != 0):
+                issues.append(_issue("status", "已完成状态与人数不一致", [row], ("状态",) + NUMBER_FIELDS))
         except ValueError:
-            issues.append({"type": "number", "message": "人数必须是非负整数", "source": f"{row.source_file}/{row.source_sheet}/{row.source_row}"})
+            issues.append(_issue("number", "人数必须是非负整数", [row], NUMBER_FIELDS))
     for number, matches in seen.items():
         if number and len(matches) > 1:
-            issues.append({"type": "duplicate", "message": f"事项编号重复：{number}", "source": "; ".join(f"{r.source_file}/{r.source_row}" for r in matches)})
+            issues.append(_issue("duplicate", f"事项编号重复：{number}", matches, ("事项编号",)))
     return issues
 
 
-def raw_totals(rows: list[Row]) -> dict[str, int]:
-    return {label: sum(int(row.values[label]) for row in rows if row.values.get(label, "").isdigit()) for label in ("应完成人数", "已完成人数", "未完成人数")}
+def raw_totals(rows: list[Row]) -> dict[str, int | None]:
+    # Never silently omit malformed values and present a partial sum as a total.
+    totals = {}
+    for label in NUMBER_FIELDS:
+        try:
+            values = [int(row.values.get(label, "")) for row in rows]
+            totals[label] = sum(values) if all(value >= 0 for value in values) else None
+        except ValueError:
+            totals[label] = None
+    return totals

@@ -1,4 +1,4 @@
-Office Assistant 0.1.0 - Windows 离线原型试用说明
+Office Assistant 0.1.1 - Windows 离线原型试用说明
 
 本版本是模拟服务原型，不是正式银行业务系统。仅使用虚构材料。
 普通使用者不需要安装 Python、Tk、pip 或任何开发工具。

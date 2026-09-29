@@ -48,8 +48,8 @@ GitHub Runner 本身可以联网；这里的“离线”指交付软件无需在
 解压 GitHub artifact 外层 ZIP，预计包含：
 
 ```text
-OfficeAssistant-0.1.0-windows-x64-setup.exe
-OfficeAssistant-0.1.0-windows-x64-portable.zip
+OfficeAssistant-0.1.1-windows-x64-setup.exe
+OfficeAssistant-0.1.1-windows-x64-portable.zip
 SHA256SUMS.txt
 build-self-check.json
 build-provenance.json

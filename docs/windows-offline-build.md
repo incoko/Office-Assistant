@@ -70,8 +70,8 @@ manifest SHA256，传入时核对。不要依赖可与文件一起被改写的�
 输出在脚本打印的 `build\windows-<唯一编号>\release\`：
 
 ```text
-OfficeAssistant-0.1.0-windows-x64-setup.exe
-OfficeAssistant-0.1.0-windows-x64-portable.zip
+OfficeAssistant-0.1.1-windows-x64-setup.exe
+OfficeAssistant-0.1.1-windows-x64-portable.zip
 build-self-check.json
 dependency-manifest.json
 build-provenance.json

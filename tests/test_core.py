@@ -73,6 +73,39 @@ class CoreTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+class SpreadsheetPresentationTests(unittest.TestCase):
+    def test_sample_result_is_user_readable_and_has_cell_locations(self):
+        from office_assistant.spreadsheet_presentation import present_result
+        result = check_spreadsheets([
+            str(SAMPLES / "02-表格汇总/演示东网点.xlsx"),
+            str(SAMPLES / "02-表格汇总/演示西网点.xlsx"),
+        ])
+        report = present_result(result)
+        self.assertEqual(report.row_count, 6)
+        self.assertEqual(report.totals, ("55", "41", "15"))
+        self.assertTrue(report.has_issues)
+        self.assertIn("4 组问题", report.status)
+        details = "\n".join(problem.detail for problem in report.problems)
+        self.assertIn("D3", details)
+        self.assertIn("A4", details)
+        self.assertIn("A3", details)
+        self.assertIn("E4", details)
+        self.assertIn("G4, H4, I4", details)
+        self.assertIn("待核验原始合计", report.caution)
+
+    def test_empty_selection_and_invalid_numeric_values_are_not_silent(self):
+        from office_assistant.spreadsheet_presentation import present_result
+        with self.assertRaises(ValueError):
+            check_spreadsheets([])
+        report = present_result({
+            "rows": [object()],
+            "issues": [{"type": "number", "message": "人数必须是非负整数", "source": "demo"}],
+            "raw_totals": {"应完成人数": None, "已完成人数": 2, "未完成人数": 1},
+        })
+        self.assertEqual(report.totals, ("—", "2", "1"))
+        self.assertIn("无法计算", report.caution)
+
+
 class FileBoundaryTests(unittest.TestCase):
     def test_authorized_read_and_non_destructive_output(self):
         from office_assistant.file_access import AuthorizedFileAccess, FileAccessError

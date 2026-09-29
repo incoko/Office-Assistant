@@ -20,10 +20,13 @@ def draft_document(input_path: str, kind: str = "周报") -> str:
 
 
 def check_spreadsheets(paths: list[str]) -> dict:
+    if not paths:
+        raise ValueError("请先选择要检查的 Excel 文件。")
     rows = []
     for path in paths:
         rows.extend(read_workbook(path))
-    return {"rows": rows, "issues": validate_rows(rows), "raw_totals": raw_totals(rows), "valid": not validate_rows(rows)}
+    issues = validate_rows(rows)
+    return {"rows": rows, "issues": issues, "raw_totals": raw_totals(rows), "valid": bool(rows) and not issues}
 
 
 def fingerprint(path: str) -> str:
